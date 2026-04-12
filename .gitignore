@@ -24,6 +24,9 @@ bld/
 .idea/
 *.sln.iml
 
+# Amazon Q
+.amazonq/
+
 # User-specific files
 *.rsuser
 *.suo

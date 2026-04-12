@@ -291,22 +291,21 @@ dotnet ef migrations remove --project Panaderia.Infrastructure --startup-project
 dotnet clean && dotnet build
 ```
 
-## 🤝 Contribuir
+## 🧪 Contribuir
 
-Las contribuciones son bienvenidas. Por favor:
+Este proyecto está en desarrollo activo. Las contribuciones son bienvenidas en forma de:
 
-1. Fork el proyecto
-2. Crea una rama para tu feature (`git checkout -b feature/AmazingFeature`)
-3. Commit tus cambios (`git commit -m 'Add some AmazingFeature'`)
-4. Push a la rama (`git push origin feature/AmazingFeature`)
-5. Abre un Pull Request
+- **Pruebas y Testing**: Reportar bugs, casos de uso no contemplados, pruebas de integración
+- **Sugerencias**: Ideas para mejorar funcionalidades existentes
+- **Documentación**: Mejoras en la documentación y ejemplos de uso
 
-### Estándares de Código
-- Seguir las convenciones de C# y .NET
-- Usar PascalCase para clases y métodos públicos
-- Usar camelCase con underscore para campos privados
-- Documentar código complejo con comentarios en español
-- Mantener la arquitectura limpia y separación de capas
+**Nota**: Por el momento no se aceptan contribuciones de código directamente. Si encuentras un bug o tienes una sugerencia, por favor abre un Issue.
+
+### Reportar Bugs
+1. Verifica que el bug no haya sido reportado previamente
+2. Abre un Issue con descripción detallada
+3. Incluye pasos para reproducir el problema
+4. Adjunta capturas de pantalla si es posible
 
 ## 📝 Licencia
 
