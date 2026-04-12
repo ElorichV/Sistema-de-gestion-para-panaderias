@@ -1,0 +1,467 @@
+﻿/* ================================================================================
+   PANIFICADORA TANAJARA - SCRIPT DDL
+   Descripción: Reinicio seguro, creación de esquema y reglas de negocio.
+================================================================================
+*/
+
+PRINT '=========================================================================';
+PRINT '>>> INICIO DEL PROCESO DE DEPLIEGUE: BD PANIFICADORA TANAJARA';
+PRINT '>>> FECHA DE EJECUCIÓN: ' + CONVERT(VARCHAR, GETDATE(), 120);
+PRINT '=========================================================================';
+
+-- =============================================================================
+-- 1. PROTOCOLO DE SEGURIDAD Y REINICIO (OFFLINE MODE)
+-- =============================================================================
+USE master;
+GO
+
+PRINT '';
+PRINT '>>> FASE 1: PREPARACIÓN DEL ENTORNO';
+
+IF EXISTS (SELECT name FROM sys.databases WHERE name = N'Panaderia_Tanajara')
+BEGIN
+    PRINT '    ! La base de datos existe. Iniciando protocolo de borrado seguro...';
+    PRINT '    ! Poniendo base de datos en modo OFFLINE (Cortando conexiones)...';
+    
+    ALTER DATABASE Panaderia_Tanajara 
+    SET OFFLINE WITH ROLLBACK IMMEDIATE;
+    
+    PRINT '    ! Eliminando archivo físico (DROP DATABASE)...';
+    DROP DATABASE Panaderia_Tanajara;  
+    
+    PRINT '    > Base de datos eliminada correctamente.';
+END
+ELSE
+BEGIN
+    PRINT '    > La base de datos no existía. Listo para crear.';
+END
+GO
+
+PRINT '    > Creando nueva base de datos limpia...';
+CREATE DATABASE Panaderia_Tanajara;
+GO
+
+PRINT '    > Conectando a [Panaderia_Tanajara]...';
+USE Panaderia_Tanajara;
+GO
+
+-- =============================================================================
+-- 2. CREACIÓN DE CATÁLOGOS (Tablas Independientes)
+-- =============================================================================
+PRINT '';
+PRINT '>>> FASE 2: CREACIÓN DE CATÁLOGOS (LOOKUPS)';
+
+PRINT '   + Creando tabla: [Puestos]...';
+CREATE TABLE Puestos (
+    PuestoID INT PRIMARY KEY IDENTITY(1,1),
+    Nombre VARCHAR(100) NOT NULL
+);
+
+PRINT '   + Creando tabla: [TipoCliente]...';
+CREATE TABLE TipoCliente (
+    TipoClienteID INT PRIMARY KEY IDENTITY(1,1),
+    Nombre VARCHAR(100) NOT NULL
+);
+
+PRINT '   + Creando tabla: [TipoProducto]...';
+CREATE TABLE TipoProducto (
+    TipoProductoID INT PRIMARY KEY IDENTITY(1,1),
+    Nombre VARCHAR(100) NOT NULL
+);
+
+PRINT '   + Creando tabla: [UnidadMedida]...';
+CREATE TABLE UnidadMedida (
+    UnidadMedidaID INT PRIMARY KEY IDENTITY(1,1),
+    Nombre VARCHAR(50) NOT NULL,
+    Abreviatura VARCHAR(10) NOT NULL
+);
+
+PRINT '   + Creando tabla: [TipoImpuesto]...';
+CREATE TABLE TipoImpuesto (
+    TipoImpuestoID INT PRIMARY KEY IDENTITY(1,1),
+    Descripcion VARCHAR(100) NOT NULL,
+    Porcentaje DECIMAL(5, 4) NOT NULL
+);
+
+-- =============================================================================
+-- 3. CREACIÓN DE ENTIDADES MAESTRAS (Personas y Productos)
+-- =============================================================================
+PRINT '';
+PRINT '>>> FASE 3: CREACIÓN DE ENTIDADES MAESTRAS';
+
+PRINT '   + Creando tabla: [Sucursales]...';
+CREATE TABLE Sucursales (
+    SucursalID INT PRIMARY KEY IDENTITY(1,1),
+    Nombre VARCHAR(150) NOT NULL,
+    Direccion VARCHAR(255) NULL
+);
+
+PRINT '   + Creando tabla: [Empleados] (Con FKs a Puesto y Sucursal)...';
+CREATE TABLE Empleados (
+    EmpleadoID INT PRIMARY KEY IDENTITY(1,1),
+    Nombre VARCHAR(100) NOT NULL,
+    Apellido VARCHAR(100) NOT NULL,
+    PuestoID INT NOT NULL,
+    SucursalID INT NOT NULL,
+    FechaContratacion DATE NOT NULL,
+    
+    CONSTRAINT FK_Empleado_Puesto FOREIGN KEY (PuestoID) REFERENCES Puestos(PuestoID),
+    CONSTRAINT FK_Empleado_Sucursal FOREIGN KEY (SucursalID) REFERENCES Sucursales(SucursalID)
+);
+
+PRINT '   + Creando tabla: [Clientes] (Con Restricción Unique Email)...';
+CREATE TABLE Clientes (
+    ClienteID INT PRIMARY KEY IDENTITY(1,1),
+    Nombre VARCHAR(150) NOT NULL,
+    RFC VARCHAR(13) NULL,
+    Email VARCHAR(100) NULL,
+    TipoClienteID INT NOT NULL,
+
+    CONSTRAINT UQ_Cliente_Email UNIQUE(Email),
+    CONSTRAINT FK_Cliente_Tipo FOREIGN KEY (TipoClienteID) REFERENCES TipoCliente(TipoClienteID)
+);
+
+PRINT '   + Creando tabla: [Proveedores]...';
+CREATE TABLE Proveedores (
+    ProveedorID INT PRIMARY KEY IDENTITY(1,1),
+    NombreFiscal VARCHAR(255) NOT NULL,
+    RFC VARCHAR(13) NOT NULL,
+    NombreContacto VARCHAR(150) NULL,
+
+    CONSTRAINT UQ_Proveedor_RFC UNIQUE(RFC)
+);
+
+PRINT '   + Creando tabla: [Productos] (Manejo de decimales y FKs)...';
+CREATE TABLE Productos (
+    ProductoID INT PRIMARY KEY IDENTITY(1,1),
+    Nombre VARCHAR(150) NOT NULL,
+    Descripcion TEXT NULL,
+    TipoProductoID INT NOT NULL,
+    UnidadMedidaID INT NOT NULL,
+    PrecioVenta DECIMAL(10, 2) NOT NULL CONSTRAINT DF_Producto_PrecioVenta DEFAULT 0.00,
+    CostoPromedio DECIMAL(10, 2) NOT NULL CONSTRAINT DF_Producto_CostoPromedio DEFAULT 0.00,
+    EsVendible BIT NOT NULL CONSTRAINT DF_Producto_EsVendible DEFAULT 1,
+    EsInsumo BIT NOT NULL CONSTRAINT DF_Producto_EsInsumo DEFAULT 0,
+
+    CONSTRAINT FK_Producto_Tipo FOREIGN KEY (TipoProductoID) REFERENCES TipoProducto(TipoProductoID),
+    CONSTRAINT FK_Producto_Unidad FOREIGN KEY (UnidadMedidaID) REFERENCES UnidadMedida(UnidadMedidaID)
+);
+
+-- =============================================================================
+-- 4. CREACIÓN DE TABLAS TRANSACCIONALES (Operación Diaria)
+-- =============================================================================
+PRINT '';
+PRINT '>>> FASE 4: CREACIÓN DE TABLAS TRANSACCIONALES';
+
+PRINT '   + Creando tabla: [Ventas] (Cabecera)...';
+CREATE TABLE Ventas (
+    VentaID INT PRIMARY KEY IDENTITY(1,1),
+    SucursalID INT NOT NULL,
+    EmpleadoID INT NOT NULL,
+    ClienteID INT NULL, 
+    TipoImpuestoID INT NOT NULL,
+    FechaHora DATETIME NOT NULL CONSTRAINT DF_Venta_FechaHora DEFAULT CURRENT_TIMESTAMP,
+    Subtotal DECIMAL(12, 2) NOT NULL,
+    TotalImpuestos DECIMAL(12, 2) NOT NULL,
+    Total DECIMAL(12, 2) NOT NULL,
+    Estatus VARCHAR(20) NOT NULL CONSTRAINT DF_Venta_Estatus DEFAULT 'Completada',
+
+    CONSTRAINT FK_Venta_Sucursal FOREIGN KEY (SucursalID) REFERENCES Sucursales(SucursalID),
+    CONSTRAINT FK_Venta_Empleado FOREIGN KEY (EmpleadoID) REFERENCES Empleados(EmpleadoID),
+    CONSTRAINT FK_Venta_Cliente FOREIGN KEY (ClienteID) REFERENCES Clientes(ClienteID),
+    CONSTRAINT FK_Venta_Impuesto FOREIGN KEY (TipoImpuestoID) REFERENCES TipoImpuesto(TipoImpuestoID)
+);
+
+PRINT '   + Creando tabla: [VentaDetalle] (Con columna calculada Importe)...';
+CREATE TABLE VentaDetalle (
+    VentaDetalleID INT PRIMARY KEY IDENTITY(1,1),
+    VentaID INT NOT NULL,
+    ProductoID INT NOT NULL,
+    Cantidad DECIMAL(10, 3) NOT NULL,
+    PrecioUnitario DECIMAL(10, 2) NOT NULL,
+    Importe AS (Cantidad * PrecioUnitario), -- Columna calculada
+
+    CONSTRAINT FK_VentaDetalle_Venta FOREIGN KEY (VentaID) REFERENCES Ventas(VentaID),
+    CONSTRAINT FK_VentaDetalle_Producto FOREIGN KEY (ProductoID) REFERENCES Productos(ProductoID)
+);
+
+PRINT '   + Creando tabla: [Compras] (Cabecera)...';
+CREATE TABLE Compras (
+    CompraID INT PRIMARY KEY IDENTITY(1,1),
+    ProveedorID INT NOT NULL,
+    SucursalID INT NOT NULL,
+    EmpleadoID INT NOT NULL,
+    FechaRecepcion DATE NOT NULL,
+    Total DECIMAL(12, 2) NOT NULL,
+
+    CONSTRAINT FK_Compra_Proveedor FOREIGN KEY (ProveedorID) REFERENCES Proveedores(ProveedorID),
+    CONSTRAINT FK_Compra_Sucursal FOREIGN KEY (SucursalID) REFERENCES Sucursales(SucursalID),
+    CONSTRAINT FK_Compra_Empleado FOREIGN KEY (EmpleadoID) REFERENCES Empleados(EmpleadoID)
+);
+
+PRINT '   + Creando tabla: [CompraDetalle]...';
+CREATE TABLE CompraDetalle (
+    CompraDetalleID INT PRIMARY KEY IDENTITY(1,1),
+    CompraID INT NOT NULL,
+    ProductoID INT NOT NULL,
+    Cantidad DECIMAL(10, 3) NOT NULL,
+    CostoUnitario DECIMAL(10, 2) NOT NULL,
+
+    CONSTRAINT FK_CompraDetalle_Compra FOREIGN KEY (CompraID) REFERENCES Compras(CompraID),
+    CONSTRAINT FK_CompraDetalle_Producto FOREIGN KEY (ProductoID) REFERENCES Productos(ProductoID)
+);
+
+PRINT '   + Creando tabla: [Inventario] (Con restricción UNIQUE Sucursal-Producto)...';
+CREATE TABLE Inventario (
+    InventarioID INT PRIMARY KEY IDENTITY(1,1),
+    SucursalID INT NOT NULL,
+    ProductoID INT NOT NULL,
+    CantidadStock DECIMAL(12, 3) NOT NULL CONSTRAINT DF_Inventario_Stock DEFAULT 0.00,
+
+    CONSTRAINT FK_Inventario_Sucursal FOREIGN KEY (SucursalID) REFERENCES Sucursales(SucursalID),
+    CONSTRAINT FK_Inventario_Producto FOREIGN KEY (ProductoID) REFERENCES Productos(ProductoID),
+    
+    CONSTRAINT UQ_Inventario_Producto_Sucursal UNIQUE(SucursalID, ProductoID)
+);
+
+PRINT '';
+PRINT '=========================================================================';
+PRINT '>>> EJECUCIÓN EXITOSA: EL ESQUEMA DE BASE DE DATOS HA SIDO CREADO.';
+PRINT '>>> LISTO PARA RECIBIR DATOS.';
+PRINT '=========================================================================';
+GO
+
+/* =========================================================================
+   PANIFICADORA TANAJARA - SCRIPT DML (CARGA DE DATOS)
+   Con bitácora de ejecución paso a paso.
+   =========================================================================
+*/
+USE Panaderia_Tanajara;
+GO
+
+SET NOCOUNT OFF; -- Importante: Permite ver el mensaje estándar "(X rows affected)"
+
+PRINT '=========================================================================';
+PRINT '>>> INICIO DE CARGA MASIVA DE DATOS';
+PRINT '>>> FECHA: ' + CONVERT(VARCHAR, GETDATE(), 120);
+PRINT '=========================================================================';
+-- ======================================================================
+-- 1. CATÁLOGOS
+-- ======================================================================
+PRINT '';
+PRINT '>>> FASE 1: CARGA DE CATÁLOGOS';
+
+PRINT '   + Insertando [Sucursales]...';
+INSERT INTO Sucursales (Nombre, Direccion) VALUES 
+('Matriz Centro', 'Calle 5 de Mayo #123'),
+('Sucursal Norte', 'Av. Vallarta #4500'),
+('Sucursal Sur', 'Blvd. Perisur #890'),
+('Sucursal Este', 'Calz. Independencia #202'),
+('Sucursal Oeste', 'Av. Aviación #999');
+PRINT '     > Total filas: ' + CAST(@@ROWCOUNT AS VARCHAR);
+
+PRINT '   + Insertando [Puestos]...';
+INSERT INTO Puestos (Nombre) VALUES 
+('Gerente General'), ('Gerente de Sucursal'), ('Cajero Principal'), ('Cajero Medio Tiempo'), 
+('Panadero Jefe'), ('Ayudante de Panadería'), ('Repostero'), ('Barista'), 
+('Encargado de Compras'), ('Repartidor'), ('Limpieza'), ('Contador'), ('Seguridad'), ('Almacenista'), ('Chofer');
+PRINT '     > Total filas: ' + CAST(@@ROWCOUNT AS VARCHAR);
+
+PRINT '   + Insertando [TipoCliente]...';
+INSERT INTO TipoCliente (Nombre) VALUES 
+('Público General'), ('Mayorista Restaurante'), ('Mayorista Hotel'), ('Empleado'), ('Familiar/Amigo'), 
+('Convenio Escolar'), ('Convenio Hospital'), ('Cliente VIP');
+PRINT '     > Total filas: ' + CAST(@@ROWCOUNT AS VARCHAR);
+
+PRINT '   + Insertando [TipoProducto]...';
+INSERT INTO TipoProducto (Nombre) VALUES 
+('Pan Dulce'), ('Pan Salado'), ('Pastelería'), ('Cafetería Caliente'), ('Cafetería Fría'), 
+('Abarrotes Lácteos'), ('Abarrotes Secos'), ('Insumos Harinas'), ('Insumos Grasas'), ('Insumos Esencias');
+PRINT '     > Total filas: ' + CAST(@@ROWCOUNT AS VARCHAR);
+
+PRINT '   + Insertando [UnidadMedida]...';
+INSERT INTO UnidadMedida (Nombre, Abreviatura) VALUES 
+('Pieza', 'pz'), ('Kilogramo', 'kg'), ('Litro', 'lt'), ('Paquete', 'pq'), ('Caja', 'cj'), 
+('Bulto', 'bto'), ('Gramo', 'gr'), ('Rebanada', 'reb');
+PRINT '     > Total filas: ' + CAST(@@ROWCOUNT AS VARCHAR);
+
+PRINT '   + Insertando [TipoImpuesto]...';
+INSERT INTO TipoImpuesto (Descripcion, Porcentaje) VALUES 
+('IVA 16%', 0.16), ('Tasa Cero 0%', 0.00), ('IEPS 8%', 0.08);
+PRINT '     > Total filas: ' + CAST(@@ROWCOUNT AS VARCHAR);
+
+-- ======================================================================
+-- 2. ENTIDADES MAESTRAS
+-- ======================================================================
+PRINT '';
+PRINT '>>> FASE 2: CARGA DE MAESTROS (PROVEEDORES, EMPLEADOS, CLIENTES, PRODUCTOS)';
+
+PRINT '   + Insertando [Proveedores]...';
+INSERT INTO Proveedores (NombreFiscal, RFC, NombreContacto) VALUES 
+('Harinera La Espiga SA', 'HLE900101AAA', 'Juan Domínguez'),
+('Lácteos del Valle', 'LDV880202BBB', 'Maria Soria'),
+('Café de Altura Chiapas', 'CAC770303CCC', 'Pedro Páramo'),
+('Azucarera del Golfo', 'ADG660404DDD', 'Luisa Lane'),
+('Empaques de Cartón SA', 'EDC550505EEE', 'Clark Kent'),
+('Huevos San Juan', 'HSJ440606FFF', 'Bruce Wayne'),
+('Esencias y Sabores', 'EYS330707GGG', 'Diana Prince'),
+('Distribuidora Abarrotera', 'DAB220808HHH', 'Barry Allen'),
+('Gas y Energía', 'GYE110909III', 'Hal Jordan'),
+('Mantenimiento de Hornos', 'MDH001010JJJ', 'Arthur Curry'),
+('Frutas Frescas SA', 'FFS991111KKK', 'Victor Stone'),
+('Chocolates Finos', 'CHF881212LLL', 'Oliver Queen'),
+('Levaduras Industriales', 'LIN770113MMM', 'Billy Batson'),
+('Refrescos del Mundo', 'RDM660214NNN', 'Carter Hall'),
+('Limpieza Total SA', 'LIT550315OOO', 'Shiera Hall');
+PRINT '     > Total filas: ' + CAST(@@ROWCOUNT AS VARCHAR);
+
+PRINT '   + Insertando [Empleados]...';
+INSERT INTO Empleados (Nombre, Apellido, PuestoID, SucursalID, FechaContratacion) VALUES 
+('Angel', 'Guerrero', 1, 1, '2020-01-15'),
+('Axel', 'Linares', 2, 2, '2021-03-20'),
+('Roberto', 'Gomez', 3, 1, '2022-05-10'),
+('Flor', 'inda Meza', 3, 2, '2022-06-15'),
+('Ruben', 'Aguirre', 5, 1, '2019-11-01'),
+('Edgar', 'Vivar', 5, 3, '2020-02-28'),
+('Maria', 'Antonieta', 4, 3, '2023-01-01'),
+('Carlos', 'Villagran', 4, 4, '2023-02-14'),
+('Ramon', 'Valdes', 10, 1, '2021-08-08'),
+('Angelines', 'Fernandez', 7, 1, '2020-10-31'),
+('Horacio', 'Gomez', 8, 2, '2022-12-24'),
+('Raul', 'Chato', 14, 5, '2021-09-15'),
+('Gaspar', 'Henaine', 11, 1, '2023-05-05'),
+('Mario', 'Moreno', 2, 4, '2018-01-01'),
+('German', 'Valdes', 6, 5, '2022-07-20');
+PRINT '     > Total filas: ' + CAST(@@ROWCOUNT AS VARCHAR);
+
+PRINT '   + Insertando [Clientes] (Con corrección de emails únicos)...';
+INSERT INTO Clientes (Nombre, RFC, Email, TipoClienteID) VALUES 
+('Mostrador General', 'XAXX010101000', NULL, 1),
+('Restaurante Los Arcos', 'RLA101010ABC', 'contacto@arcos.com', 2),
+('Hotel Plaza', 'HPL202020DEF', 'compras@hplaza.com', 3),
+('Cafetería La Roma', 'CLR303030GHI', 'admin@roma.com', 2),
+('Escuela Primaria #5', 'SEP404040JKL', 'director@escuela5.edu', 6),
+('Hospital Civil', 'HCI505050MNO', 'cocina@hcivil.gob', 7),
+('Juan Perez (Empleado)', 'PEPJ808080PQR', 'juan.p@tanajara.com', 4),
+('Maria La Del Barrio', 'MDB909090STU', 'maria@novela.com', 8),
+('Pedro Infante', 'PIN505050VWX', 'pedro@cielo.com', 1),
+('Jorge Negrete', 'JNE606060YZA', 'jorge@charro.com', 1),
+('Luis Miguel', 'LMI707070BCD', 'elsol@mexico.com', 8),
+('Vicente Fernandez', 'VFE808080EFG', 'chente@rey.com', 5),
+('Thalia Sodi', 'TSO909090HIJ', 'thalia@amor.com', 5),
+('Paulina Rubio', 'PRU010101KLM', 'pau@dorado.com', 1),
+('Gloria Trevi', 'GTR121212NOP', 'gloria@pelo.com', 1);
+PRINT '     > Total filas: ' + CAST(@@ROWCOUNT AS VARCHAR);
+
+PRINT '   + Insertando [Productos]...';
+INSERT INTO Productos (Nombre, Descripcion, TipoProductoID, UnidadMedidaID, PrecioVenta, CostoPromedio, EsVendible, EsInsumo) VALUES 
+('Concha Vainilla', 'Pan dulce tradicional', 1, 1, 15.00, 5.50, 1, 0),
+('Concha Chocolate', 'Pan dulce tradicional', 1, 1, 15.00, 5.50, 1, 0),
+('Bolillo', 'Pan salado individual', 2, 1, 8.00, 2.00, 1, 0),
+('Telera', 'Pan para torta', 2, 1, 9.00, 2.50, 1, 0),
+('Oreja', 'Hojaldre azucarado', 1, 1, 12.00, 4.00, 1, 0),
+('Dona Chocolate', 'Dona cubierta', 1, 1, 18.00, 6.00, 1, 0),
+('Pastel 3 Leches', 'Pastel entero 2kg', 3, 1, 350.00, 150.00, 1, 0),
+('Rebanada Pastel', 'Porcion individual', 3, 8, 45.00, 18.00, 1, 0),
+('Café Americano', 'Vaso 12oz', 4, 1, 35.00, 8.00, 1, 0),
+('Cappuccino', 'Vaso 12oz con leche', 4, 1, 45.00, 12.00, 1, 0),
+('Frappe Moka', 'Bebida fria', 5, 1, 55.00, 15.00, 1, 0),
+('Leche Entera 1L', 'Tetrapak', 6, 3, 28.00, 24.00, 1, 1),
+('Harina Trigo', 'Saco 44kg', 8, 6, 0.00, 450.00, 0, 1),
+('Azúcar Estándar', 'Saco 50kg', 8, 6, 0.00, 800.00, 0, 1),
+('Huevo Blanco', 'Caja con 360 pz', 9, 5, 0.00, 900.00, 0, 1),
+('Mantequilla', 'Bloque 1kg', 9, 2, 0.00, 120.00, 0, 1),
+('Levadura Fresca', 'Paquete 500gr', 10, 4, 0.00, 45.00, 0, 1),
+('Coca Cola 600ml', 'Refresco', 6, 1, 20.00, 15.00, 1, 0),
+('Jugo Naranja', 'Natural 500ml', 5, 1, 30.00, 10.00, 1, 0),
+('Baguette Rustica', 'Pan artesanal', 2, 1, 25.00, 8.00, 1, 0);
+PRINT '     > Total filas: ' + CAST(@@ROWCOUNT AS VARCHAR);
+
+-- ======================================================================
+-- 5. TRANSACCIONES
+-- ======================================================================
+PRINT '';
+PRINT '>>> FASE 3: CARGA DE TRANSACCIONES (COMPRAS, VENTAS, INVENTARIO)';
+
+PRINT '   + Insertando [Compras]...';
+INSERT INTO Compras (ProveedorID, SucursalID, EmpleadoID, FechaRecepcion, Total) VALUES 
+(1, 1, 1, '2025-10-01', 4500.00),
+(2, 1, 1, '2025-10-02', 2400.00),
+(6, 1, 1, '2025-10-02', 1800.00),
+(14, 2, 2, '2025-10-03', 1500.00),
+(4, 3, 6, '2025-10-05', 3200.00),
+(1, 4, 14, '2025-10-06', 2250.00),
+(2, 2, 2, '2025-10-10', 1200.00),
+(3, 1, 5, '2025-10-12', 5000.00),
+(12, 1, 5, '2025-10-15', 3000.00),
+(5, 5, 15, '2025-10-20', 1000.00),
+(1, 2, 2, '2025-10-25', 900.00),
+(6, 3, 6, '2025-10-28', 2700.00),
+(14, 4, 14, '2025-11-01', 3000.00),
+(2, 5, 15, '2025-11-05', 2400.00),
+(4, 1, 1, '2025-11-10', 1600.00);
+PRINT '     > Total filas: ' + CAST(@@ROWCOUNT AS VARCHAR);
+
+PRINT '   + Insertando [CompraDetalle]...';
+INSERT INTO CompraDetalle (CompraID, ProductoID, Cantidad, CostoUnitario) VALUES 
+(1, 13, 10, 450.00), (2, 12, 100, 24.00), (3, 15, 2, 900.00), (4, 18, 100, 15.00),
+(5, 14, 4, 800.00), (6, 13, 5, 450.00), (7, 12, 50, 24.00), (8, 9, 20, 250.00),
+(9, 6, 200, 6.00), (10, 18, 50, 20.00), (11, 13, 2, 450.00), (12, 15, 3, 900.00),
+(13, 18, 200, 15.00), (14, 12, 100, 24.00), (15, 14, 2, 800.00);
+PRINT '     > Total filas: ' + CAST(@@ROWCOUNT AS VARCHAR);
+
+PRINT '   + Insertando [Inventario]...';
+INSERT INTO Inventario (SucursalID, ProductoID, CantidadStock) VALUES 
+(1, 1, 50), (1, 2, 50), (1, 3, 100), (1, 4, 80), (1, 5, 60), (1, 12, 50), (1, 13, 20),
+(2, 1, 30), (2, 2, 30), (2, 3, 50), (2, 18, 100),
+(3, 1, 40), (3, 7, 5), (3, 8, 20),
+(4, 3, 80), (4, 4, 60),
+(5, 18, 200), (5, 20, 15),
+(1, 10, 200), (2, 10, 150), 
+(1, 9, 500), 
+(3, 12, 20);
+PRINT '     > Total filas: ' + CAST(@@ROWCOUNT AS VARCHAR);
+
+PRINT '   + Insertando [Ventas]...';
+INSERT INTO Ventas (SucursalID, EmpleadoID, ClienteID, TipoImpuestoID, Subtotal, TotalImpuestos, Total, Estatus) VALUES 
+(1, 3, 1, 1, 100.00, 16.00, 116.00, 'Completada'), -- Venta 1
+(1, 3, 9, 1, 50.00, 8.00, 58.00, 'Completada'),  -- Venta 2
+(1, 5, 1, 2, 28.00, 0.00, 28.00, 'Completada'),  -- Venta 3
+(2, 2, 2, 1, 500.00, 80.00, 580.00, 'Completada'), -- Venta 4
+(2, 2, 1, 1, 45.00, 7.20, 52.20, 'Completada'),  -- Venta 5
+(3, 6, 5, 1, 1200.00, 192.00, 1392.00, 'Completada'), -- Venta 6
+(3, 7, 1, 1, 30.00, 4.80, 34.80, 'Completada'),  -- Venta 7
+(4, 8, 11, 1, 350.00, 56.00, 406.00, 'Completada'), -- Venta 8
+(4, 8, 1, 1, 90.00, 14.40, 104.40, 'Completada'), -- Venta 9
+(5, 15, 14, 1, 20.00, 3.20, 23.20, 'Completada'), -- Venta 10
+(1, 3, 1, 1, 15.00, 2.40, 17.40, 'Completada'),  -- Venta 11
+(1, 5, 7, 3, 35.00, 2.80, 37.80, 'Completada'),  -- Venta 12
+(2, 2, 1, 1, 200.00, 32.00, 232.00, 'Completada'), -- Venta 13
+(3, 6, 6, 2, 500.00, 0.00, 500.00, 'Pendiente'), -- Venta 14
+(1, 3, 1, 1, 45.00, 7.20, 52.20, 'Cancelada');   -- Venta 15
+PRINT '     > Total filas: ' + CAST(@@ROWCOUNT AS VARCHAR);
+
+PRINT '   + Insertando [VentaDetalle]...';
+INSERT INTO VentaDetalle (VentaID, ProductoID, Cantidad, PrecioUnitario) VALUES 
+(1, 1, 4, 15.00), (1, 3, 5, 8.00), 
+(2, 9, 1, 35.00), (2, 1, 1, 15.00), 
+(3, 12, 1, 28.00), 
+(4, 3, 50, 8.00), (4, 4, 11, 9.00), 
+(5, 10, 1, 45.00), 
+(6, 7, 3, 350.00), (6, 18, 7, 20.00), 
+(7, 19, 1, 30.00), 
+(8, 7, 1, 350.00), 
+(9, 10, 2, 45.00), 
+(10, 18, 1, 20.00), 
+(11, 1, 1, 15.00), 
+(12, 9, 1, 35.00), 
+(13, 20, 8, 25.00), 
+(14, 3, 62, 8.00), 
+(15, 10, 1, 45.00);
+PRINT '     > Total filas: ' + CAST(@@ROWCOUNT AS VARCHAR);
+
+PRINT '';
+PRINT '=========================================================================';
+PRINT '>>> CARGA MASIVA COMPLETADA EXITOSAMENTE';
+PRINT '=========================================================================';
+
