@@ -11,7 +11,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 
 // ---------------------------------------------------------
-// 1. CONFIGURACIÓN DE BASE DE DATOS
+// 1. CONFIGURACIï¿½N DE BASE DE DATOS
 // ---------------------------------------------------------
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
@@ -19,14 +19,18 @@ builder.Services.AddDbContext<PanaderiaDbContext>(options =>
     options.UseSqlServer(connectionString));
 
 // ---------------------------------------------------------
-// 2. INYECCIÓN DE DEPENDENCIAS (EL ORDEN IMPORTA)
+// 2. INYECCIï¿½N DE DEPENDENCIAS (EL ORDEN IMPORTA)
 // ---------------------------------------------------------
 
 // A. Primero el Repositorio (Capa Infraestructura) <--- FALTABA ESTO
 builder.Services.AddScoped<IProductoRepository, ProductoRepository>();
+builder.Services.AddScoped<IClienteRepository, ClienteRepository>();
+builder.Services.AddScoped<IVentaRepository, VentaRepository>();
 
-// B. Luego el Servicio (Capa Aplicación)
+// B. Luego el Servicio (Capa Aplicaciï¿½n)
 builder.Services.AddScoped<IProductoService, ProductoService>();
+builder.Services.AddScoped<IClienteService, ClienteService>();
+builder.Services.AddScoped<IVentaService, VentaService>();
 
 // ---------------------------------------------------------
 
