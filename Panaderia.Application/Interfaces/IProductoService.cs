@@ -1,12 +1,15 @@
-﻿using Panaderia.Application.DTOs;
-using Panaderia.Domain.Entities;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Panaderia.Application.DTOs;
 
 namespace Panaderia.Application.Interfaces
 {
     public interface IProductoService
     {
-        // Usamos Task porque es asíncrono (buenas prácticas de rendimiento)
-        Task<bool> CrearAsync(CreateProductoDto dto);
-        Task<List<Producto>> ObtenerTodosAsync();
+        Task<List<ProductoResponseDto>> ObtenerTodosAsync();
+        Task<ProductoResponseDto?> ObtenerPorIdAsync(int id);
+        Task<ProductoResponseDto> CrearAsync(CreateProductoDto dto);
+        Task<bool> ActualizarAsync(int id, CreateProductoDto dto);
+        Task<bool> DesactivarProductoAsync(int id);
     }
 }

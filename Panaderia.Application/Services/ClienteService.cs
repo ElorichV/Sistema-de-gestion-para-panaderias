@@ -1,4 +1,7 @@
-using Panaderia.Application.DTO_S;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using Panaderia.Application.DTOs;
 using Panaderia.Application.Interfaces;
 using Panaderia.Domain.Entities;
 
@@ -13,17 +16,19 @@ namespace Panaderia.Application.Services
             _repository = repository;
         }
 
-        public async Task<List<Cliente>> ObtenerTodosAsync()
+        public async Task<List<ClienteResponseDto>> ObtenerTodosAsync()
         {
-            return await _repository.ObtenerTodosAsync();
+            var clientes = await _repository.ObtenerTodosAsync();
+            return clientes.Select(MapToResponseDto).ToList();
         }
 
-        public async Task<Cliente?> ObtenerPorIdAsync(int id)
+        public async Task<ClienteResponseDto?> ObtenerPorIdAsync(int id)
         {
-            return await _repository.ObtenerPorIdAsync(id);
+            var cliente = await _repository.ObtenerPorIdAsync(id);
+            return cliente == null ? null : MapToResponseDto(cliente);
         }
 
-        public async Task<bool> CrearAsync(CreateClienteDto dto)
+        public async Task<ClienteResponseDto> CrearAsync(CreateClienteDto dto)
         {
             var cliente = new Cliente
             {
@@ -33,7 +38,9 @@ namespace Panaderia.Application.Services
                 TipoClienteId = dto.TipoClienteId
             };
 
-            return await _repository.CrearAsync(cliente);
+            await _repository.CrearAsync(cliente);
+            var guardado = await _repository.ObtenerPorIdAsync(cliente.ClienteId);
+            return MapToResponseDto(guardado ?? cliente);
         }
 
         public async Task<bool> ActualizarAsync(int id, CreateClienteDto dto)
@@ -52,6 +59,19 @@ namespace Panaderia.Application.Services
         public async Task<bool> EliminarAsync(int id)
         {
             return await _repository.EliminarAsync(id);
+        }
+
+        private static ClienteResponseDto MapToResponseDto(Cliente c)
+        {
+            return new ClienteResponseDto
+            {
+                ClienteId = c.ClienteId,
+                Nombre = c.Nombre,
+                Rfc = c.Rfc,
+                Email = c.Email,
+                TipoClienteId = c.TipoClienteId,
+                TipoClienteNombre = c.TipoCliente?.Nombre ?? "General"
+            };
         }
     }
 }

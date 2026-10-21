@@ -1,5 +1,7 @@
+using System.Collections.Generic;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
-using Panaderia.Application.DTO_S;
+using Panaderia.Application.DTOs;
 using Panaderia.Application.Interfaces;
 
 namespace Panaderia.Controllers
@@ -16,41 +18,33 @@ namespace Panaderia.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> ObtenerTodos()
+        public async Task<ActionResult<List<ClienteResponseDto>>> ObtenerTodos()
         {
             var clientes = await _clienteService.ObtenerTodosAsync();
             return Ok(clientes);
         }
 
         [HttpGet("{id}")]
-        public async Task<IActionResult> ObtenerPorId(int id)
+        public async Task<ActionResult<ClienteResponseDto>> ObtenerPorId(int id)
         {
             var cliente = await _clienteService.ObtenerPorIdAsync(id);
-            
             if (cliente == null)
             {
-                return NotFound(new { Mensaje = "Cliente no encontrado" });
+                return NotFound(new { Mensaje = $"Cliente #{id} no encontrado." });
             }
-
             return Ok(cliente);
         }
 
         [HttpPost]
-        public async Task<IActionResult> Crear([FromBody] CreateClienteDto dto)
+        public async Task<ActionResult<ClienteResponseDto>> Crear([FromBody] CreateClienteDto dto)
         {
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
             }
 
-            var resultado = await _clienteService.CrearAsync(dto);
-
-            if (resultado)
-            {
-                return Ok(new { Mensaje = "Cliente registrado con éxito 👤" });
-            }
-
-            return StatusCode(500, "Error al registrar el cliente");
+            var clienteCreado = await _clienteService.CrearAsync(dto);
+            return CreatedAtAction(nameof(ObtenerPorId), new { id = clienteCreado.ClienteId }, clienteCreado);
         }
 
         [HttpPut("{id}")]
@@ -62,26 +56,22 @@ namespace Panaderia.Controllers
             }
 
             var resultado = await _clienteService.ActualizarAsync(id, dto);
-
             if (resultado)
             {
-                return Ok(new { Mensaje = "Cliente actualizado con éxito" });
+                return Ok(new { Mensaje = "Cliente actualizado con éxito 📝" });
             }
-
-            return NotFound(new { Mensaje = "Cliente no encontrado" });
+            return NotFound(new { Mensaje = "Cliente no encontrado." });
         }
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> Eliminar(int id)
         {
             var resultado = await _clienteService.EliminarAsync(id);
-
             if (resultado)
             {
-                return Ok(new { Mensaje = "Cliente eliminado con éxito" });
+                return Ok(new { Mensaje = "Cliente eliminado con éxito ❌" });
             }
-
-            return NotFound(new { Mensaje = "Cliente no encontrado" });
+            return NotFound(new { Mensaje = "Cliente no encontrado." });
         }
     }
 }

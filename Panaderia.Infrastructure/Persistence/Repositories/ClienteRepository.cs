@@ -1,3 +1,6 @@
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Panaderia.Application.Interfaces;
 using Panaderia.Domain.Entities;
@@ -17,7 +20,9 @@ namespace Panaderia.Infrastructure.Persistence.Repositories
         public async Task<List<Cliente>> ObtenerTodosAsync()
         {
             return await _context.Clientes
+                .AsNoTracking()
                 .Include(c => c.TipoCliente)
+                .OrderBy(c => c.Nombre)
                 .ToListAsync();
         }
 

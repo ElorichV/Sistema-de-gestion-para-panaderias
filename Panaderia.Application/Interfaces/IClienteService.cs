@@ -1,13 +1,14 @@
-using Panaderia.Application.DTO_S;
-using Panaderia.Domain.Entities;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Panaderia.Application.DTOs;
 
 namespace Panaderia.Application.Interfaces
 {
     public interface IClienteService
     {
-        Task<List<Cliente>> ObtenerTodosAsync();
-        Task<Cliente?> ObtenerPorIdAsync(int id);
-        Task<bool> CrearAsync(CreateClienteDto dto);
+        Task<List<ClienteResponseDto>> ObtenerTodosAsync();
+        Task<ClienteResponseDto?> ObtenerPorIdAsync(int id);
+        Task<ClienteResponseDto> CrearAsync(CreateClienteDto dto);
         Task<bool> ActualizarAsync(int id, CreateClienteDto dto);
         Task<bool> EliminarAsync(int id);
     }
