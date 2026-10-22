@@ -34,24 +34,24 @@ Sistema empresarial **Fullstack** diseñado para la gestión operativa, punto de
 La solución desacopla radicalmente el **Core de Negocio** de la infraestructura tecnológica y la capa de presentación:
 
 ```mermaid
-graph TD
+flowchart TD
     Client["💻 Single Page Application (React 18 + Vite + Tailwind CSS)"]
-    
-    subgraph Backend [".NET 8 Web API (Clean Architecture)"]
+
+    subgraph Backend["Backend .NET 8 Web API - Clean Architecture"]
         API["🌐 Presentation Layer (Thin Controllers / ASP.NET Core)"]
         App["⚙️ Application Layer (Use Cases, DTOs, Business Rules)"]
-        Domain["💎 Domain Layer (Entities, Custom Exceptions, Invariants)"]
-        Infra["🗄️ Infrastructure Layer (EF Core 8, Transactions, Repositories)"]
+        Domain["💎 Domain Layer (Entities, Custom Exceptions)"]
+        Infra["🗄️ Infrastructure Layer (EF Core 8, Repositories)"]
     end
-    
-    DB[("🛢️ Microsoft SQL Server (Relational DB)")]
 
-    Client -->|JSON / REST (CORS)| API
+    DB[("🛢️ Microsoft SQL Server - Relational DB")]
+
+    Client -->|"JSON / REST (CORS)"| API
     API --> App
     App --> Domain
-    Infra -->|Implements Interfaces| App
+    Infra -->|"Implements Interfaces"| App
     Infra --> Domain
-    Infra -->|Entity Framework Core| DB
+    Infra -->|"Entity Framework Core"| DB
 ```
 
 ### Principios y Patrones Aplicados:
