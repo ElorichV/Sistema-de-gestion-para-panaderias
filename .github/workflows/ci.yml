@@ -1,0 +1,50 @@
+name: Continuous Integration (CI)
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  backend-build:
+    name: Build & Verify .NET 8 Backend
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK 8.0
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore NuGet Packages
+        run: dotnet restore Panaderia/Panaderia.sln
+
+      - name: Build Solution (Release)
+        run: dotnet build --no-restore --configuration Release Panaderia/Panaderia.sln
+
+  frontend-build:
+    name: Build & Verify React Frontend
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: panaderia-frontend/package-lock.json
+
+      - name: Install Frontend Dependencies
+        working-directory: ./panaderia-frontend
+        run: npm ci
+
+      - name: Compile TypeScript & Vite Build
+        working-directory: ./panaderia-frontend
+        run: npm run build

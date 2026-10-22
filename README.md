@@ -6,6 +6,7 @@
 [![Vite](https://img.shields.io/badge/Vite-5.4-646CFF?logo=vite&logoColor=white)](https://vitejs.dev/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.4-06B6D4?logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
 [![SQL Server](https://img.shields.io/badge/SQL_Server-2022%2F2025-CC292B?logo=microsoftsqlserver&logoColor=white)](https://www.microsoft.com/sql-server)
+[![CI Build](https://github.com/ElorichV/Sistema-de-gestion-para-panaderias/actions/workflows/ci.yml/badge.svg)](https://github.com/ElorichV/Sistema-de-gestion-para-panaderias/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 Sistema empresarial **Fullstack** diseñado para la gestión operativa, punto de venta (POS) y control de existencias multinsumo para cadenas de panaderías y reposterías. Construido bajo **Clean Architecture**, principios **SOLID**, transacciones atómicas **ACID** en base de datos y un cliente web desacoplado con **React + Vite**.
