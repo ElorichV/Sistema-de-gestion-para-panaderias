@@ -20,9 +20,9 @@ namespace Panaderia.Application.Services
             _productoRepository = productoRepository;
         }
 
-        public async Task<List<VentaResponseDto>> ObtenerTodosAsync()
+        public async Task<List<VentaResponseDto>> ObtenerTodosAsync(int limit = 100, int? sucursalId = null)
         {
-            var ventas = await _ventaRepository.ObtenerTodosAsync();
+            var ventas = await _ventaRepository.ObtenerTodosAsync(limit, sucursalId);
             return ventas.Select(MapToResponseDto).ToList();
         }
 
@@ -77,11 +77,15 @@ namespace Panaderia.Application.Services
                 descuentosStock.Add((item.ProductoId, item.Cantidad));
             }
 
-            // 2. REGLA FINANCIERA: Cálculo de Subtotal, Impuestos y Total
+            // 2. REGLA FINANCIERA: Cálculo de Subtotal, Impuestos y Total según régimen fiscal
             var subtotal = itemsProcesados.Sum(d => d.Cantidad * d.PrecioUnitario);
 
-            // Tasa impositiva (Default 16% IVA para México/Latam o configurable)
-            decimal tasaImpuesto = 0.16m;
+            decimal tasaImpuesto = dto.TipoImpuestoId switch
+            {
+                2 => 0.00m, // Tasa Cero Panificación Básica 0%
+                3 => 0.08m, // IEPS Alta Densidad Calórica 8%
+                _ => 0.16m  // IVA General 16%
+            };
             var totalImpuestos = Math.Round(subtotal * tasaImpuesto, 2, MidpointRounding.AwayFromZero);
             var total = subtotal + totalImpuestos;
 

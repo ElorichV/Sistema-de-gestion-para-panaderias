@@ -1,281 +1,245 @@
 import {
-  Producto,
-  InventarioItem,
-  Cliente,
-  CreateVentaDto,
-  VentaResponseDto,
   ActualizarStockDto,
-  Sucursal,
-} from '../types/api'
+  CatalogosBundleDto,
+  Cliente,
+  CompraResponseDto,
+  CreateCompraDto,
+  CreateVentaDto,
+  DatabaseAnalyticsDto,
+  DatabaseTelemetryDto,
+  EndpointExecutionResult,
+  InventarioItem,
+  Producto,
+  VentaResponseDto,
+} from '../types/api';
+import {
+  buildSnapshotInventario,
+  getSnapshotAnalytics,
+  SNAPSHOT_CATALOGOS,
+  SNAPSHOT_CLIENTES,
+  SNAPSHOT_COMPRAS,
+  SNAPSHOT_PRODUCTOS,
+  SNAPSHOT_TELEMETRY,
+} from './mockSnapshot';
 
-const API_BASE = '/api'
+const API_BASE = '/api';
 
-export const SUCURSALES_DEMO: Sucursal[] = [
-  { id: 1, nombre: 'Matriz Centro', direccion: 'Calle 5 de Mayo #123' },
-  { id: 2, nombre: 'Sucursal Norte', direccion: 'Av. Vallarta #4500' },
-  { id: 3, nombre: 'Sucursal Sur', direccion: 'Blvd. Perisur #890' },
-  { id: 4, nombre: 'Sucursal Este', direccion: 'Calz. Independencia #202' },
-  { id: 5, nombre: 'Sucursal Oeste', direccion: 'Av. Aviación #999' },
-]
+let fallbackInventario = buildSnapshotInventario();
+let fallbackCompras = [...SNAPSHOT_COMPRAS];
 
-export const CLIENTES_DEMO: Cliente[] = [
-  { clienteId: 1, nombre: 'Público General', rfc: 'XAXX010101000', email: 'mostrador@panaderiatanajara.com', tipoClienteId: 1, tipoClienteNombre: 'Minorista' },
-  { clienteId: 2, nombre: 'Cafetería La Selva', rfc: 'SEL980412XYZ', email: 'compras@laselva.com', tipoClienteId: 2, tipoClienteNombre: 'Mayorista' },
-  { clienteId: 3, nombre: 'Restaurante El Gourmet', rfc: 'GOU051120ABC', email: 'cheff@elgourmet.mx', tipoClienteId: 2, tipoClienteNombre: 'Mayorista' },
-  { clienteId: 4, nombre: 'Doña María López', rfc: 'LOPM750819K32', email: 'maria.lopez@gmail.com', tipoClienteId: 1, tipoClienteNombre: 'Minorista' },
-]
-
-// Datos de demostración enriquecidos basados en Base de datos.txt
-const MOCK_PRODUCTOS: Producto[] = [
-  {
-    productoId: 1,
-    nombre: 'Concha de Vainilla Tradicional',
-    descripcion: 'Pan dulce artesanal esponjoso con cubierta crujiente de mantequilla y vainilla natural.',
-    tipoProductoId: 1,
-    tipoProductoNombre: 'Pan Dulce',
-    unidadMedidaId: 1,
-    unidadMedidaNombre: 'Pieza',
-    unidadMedidaAbreviatura: 'pza',
-    precioVenta: 14.50,
-    costoPromedio: 5.20,
-    esVendible: true,
-    esInsumo: false,
-    stockTotal: 45
-  },
-  {
-    productoId: 2,
-    nombre: 'Baguette Rústica de Masa Madre',
-    descripcion: 'Corteza dorada y crujiente, miga alveolada con 24 horas de fermentación lenta.',
-    tipoProductoId: 2,
-    tipoProductoNombre: 'Pan Salado',
-    unidadMedidaId: 1,
-    unidadMedidaNombre: 'Pieza',
-    unidadMedidaAbreviatura: 'pza',
-    precioVenta: 32.00,
-    costoPromedio: 11.50,
-    esVendible: true,
-    esInsumo: false,
-    stockTotal: 28
-  },
-  {
-    productoId: 3,
-    nombre: 'Croissant Francés de Mantequilla',
-    descripcion: 'Laminado artesanal con mantequilla de alta calidad, hojaldrado y dorado al punto.',
-    tipoProductoId: 3,
-    tipoProductoNombre: 'Repostería',
-    unidadMedidaId: 1,
-    unidadMedidaNombre: 'Pieza',
-    unidadMedidaAbreviatura: 'pza',
-    precioVenta: 28.00,
-    costoPromedio: 9.80,
-    esVendible: true,
-    esInsumo: false,
-    stockTotal: 18
-  },
-  {
-    productoId: 4,
-    nombre: 'Bolillo Tradicional de Horno de Piedra',
-    descripcion: 'Crujiente por fuera y suave miga interior, horneado con vapor continuo.',
-    tipoProductoId: 2,
-    tipoProductoNombre: 'Pan Salado',
-    unidadMedidaId: 1,
-    unidadMedidaNombre: 'Pieza',
-    unidadMedidaAbreviatura: 'pza',
-    precioVenta: 4.50,
-    costoPromedio: 1.60,
-    esVendible: true,
-    esInsumo: false,
-    stockTotal: 120
-  },
-  {
-    productoId: 5,
-    nombre: 'Dona Glaseada de Chocolate Belga',
-    descripcion: 'Masa frita ligera con cobertura de ganache de chocolate 70% cacao.',
-    tipoProductoId: 1,
-    tipoProductoNombre: 'Pan Dulce',
-    unidadMedidaId: 1,
-    unidadMedidaNombre: 'Pieza',
-    unidadMedidaAbreviatura: 'pza',
-    precioVenta: 18.00,
-    costoPromedio: 6.40,
-    esVendible: true,
-    esInsumo: false,
-    stockTotal: 8
-  },
-  {
-    productoId: 6,
-    nombre: 'Pastel Tres Leches Individual',
-    descripcion: 'Bizcocho bañado en infusión de tres leches y canela, decorado con merengue suizo.',
-    tipoProductoId: 3,
-    tipoProductoNombre: 'Repostería',
-    unidadMedidaId: 1,
-    unidadMedidaNombre: 'Pieza',
-    unidadMedidaAbreviatura: 'pza',
-    precioVenta: 55.00,
-    costoPromedio: 22.00,
-    esVendible: true,
-    esInsumo: false,
-    stockTotal: 5
-  },
-  {
-    productoId: 7,
-    nombre: 'Harina de Trigo Extra Fina (Insumo)',
-    descripcion: 'Insumo de panadería grado pastelero con alta fuerza W.',
-    tipoProductoId: 4,
-    tipoProductoNombre: 'Materia Prima',
-    unidadMedidaId: 2,
-    unidadMedidaNombre: 'Kilogramo',
-    unidadMedidaAbreviatura: 'kg',
-    precioVenta: 22.00,
-    costoPromedio: 15.00,
-    esVendible: false,
-    esInsumo: true,
-    stockTotal: 250
-  }
-]
-
-let mockInventario: InventarioItem[] = [
-  { inventarioId: 1, sucursalId: 1, sucursalNombre: 'Matriz Centro', productoId: 1, productoNombre: 'Concha de Vainilla Tradicional', descripcion: 'Pan dulce artesanal', tipoProductoNombre: 'Pan Dulce', unidadMedida: 'pza', cantidadStock: 35, precioVenta: 14.50, esVendible: true, esInsumo: false },
-  { inventarioId: 2, sucursalId: 1, sucursalNombre: 'Matriz Centro', productoId: 2, productoNombre: 'Baguette Rústica de Masa Madre', descripcion: 'Corteza dorada', tipoProductoNombre: 'Pan Salado', unidadMedida: 'pza', cantidadStock: 18, precioVenta: 32.00, esVendible: true, esInsumo: false },
-  { inventarioId: 3, sucursalId: 1, sucursalNombre: 'Matriz Centro', productoId: 3, productoNombre: 'Croissant Francés de Mantequilla', descripcion: 'Hojaldrado y dorado', tipoProductoNombre: 'Repostería', unidadMedida: 'pza', cantidadStock: 12, precioVenta: 28.00, esVendible: true, esInsumo: false },
-  { inventarioId: 4, sucursalId: 1, sucursalNombre: 'Matriz Centro', productoId: 4, productoNombre: 'Bolillo Tradicional de Horno de Piedra', descripcion: 'Horno de piedra', tipoProductoNombre: 'Pan Salado', unidadMedida: 'pza', cantidadStock: 80, precioVenta: 4.50, esVendible: true, esInsumo: false },
-  { inventarioId: 5, sucursalId: 1, sucursalNombre: 'Matriz Centro', productoId: 5, productoNombre: 'Dona Glaseada de Chocolate Belga', descripcion: 'Ganache de chocolate', tipoProductoNombre: 'Pan Dulce', unidadMedida: 'pza', cantidadStock: 6, precioVenta: 18.00, esVendible: true, esInsumo: false },
-  { inventarioId: 6, sucursalId: 1, sucursalNombre: 'Matriz Centro', productoId: 6, productoNombre: 'Pastel Tres Leches Individual', descripcion: 'Bizcocho bañado', tipoProductoNombre: 'Repostería', unidadMedida: 'pza', cantidadStock: 3, precioVenta: 55.00, esVendible: true, esInsumo: false },
-  { inventarioId: 7, sucursalId: 2, sucursalNombre: 'Sucursal Norte', productoId: 1, productoNombre: 'Concha de Vainilla Tradicional', descripcion: 'Pan dulce artesanal', tipoProductoNombre: 'Pan Dulce', unidadMedida: 'pza', cantidadStock: 10, precioVenta: 14.50, esVendible: true, esInsumo: false },
-  { inventarioId: 8, sucursalId: 2, sucursalNombre: 'Sucursal Norte', productoId: 2, productoNombre: 'Baguette Rústica de Masa Madre', descripcion: 'Corteza dorada', tipoProductoNombre: 'Pan Salado', unidadMedida: 'pza', cantidadStock: 10, precioVenta: 32.00, esVendible: true, esInsumo: false },
-]
+const nowClock = () => new Date().toTimeString().slice(0, 8);
 
 export const api = {
-  async checkHealth(): Promise<boolean> {
+  async checkHealth(): Promise<{ online: boolean; latencyMs: number; database?: string }> {
+    const t0 = performance.now();
     try {
-      const res = await fetch(`${API_BASE}/Producto`, { method: 'HEAD', signal: AbortSignal.timeout(1500) })
-      return res.ok || res.status === 200
+      const res = await fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(2200) });
+      const latencyMs = Math.round((performance.now() - t0) * 10) / 10;
+      if (!res.ok) return { online: false, latencyMs };
+      const body = await res.json();
+      return { online: Boolean(body.canConnect ?? true), latencyMs, database: body.database };
     } catch {
-      return false
+      return { online: false, latencyMs: Math.round((performance.now() - t0) * 10) / 10 };
+    }
+  },
+
+  async getTelemetry(): Promise<{ data: DatabaseTelemetryDto; source: 'live-sql' | 'portfolio-snapshot'; latencyMs: number }> {
+    const t0 = performance.now();
+    try {
+      const res = await fetch(`${API_BASE}/Database/telemetry`, { signal: AbortSignal.timeout(4000) });
+      if (!res.ok) throw new Error('offline');
+      const data = await res.json();
+      return { data, source: 'live-sql', latencyMs: Math.round((performance.now() - t0) * 10) / 10 };
+    } catch {
+      return { data: SNAPSHOT_TELEMETRY, source: 'portfolio-snapshot', latencyMs: 4.2 };
+    }
+  },
+
+  async getAnalytics(anio?: number | null, sucursalId?: number | null): Promise<{ data: DatabaseAnalyticsDto; latencyMs: number }> {
+    const t0 = performance.now();
+    try {
+      const params = new URLSearchParams();
+      if (anio) params.set('anio', String(anio));
+      if (sucursalId) params.set('sucursalId', String(sucursalId));
+      const qs = params.toString() ? `?${params.toString()}` : '';
+      const res = await fetch(`${API_BASE}/Database/analytics${qs}`, { signal: AbortSignal.timeout(4500) });
+      if (!res.ok) throw new Error('offline');
+      const data = await res.json();
+      return { data, latencyMs: Math.round((performance.now() - t0) * 10) / 10 };
+    } catch {
+      return { data: getSnapshotAnalytics(anio, sucursalId), latencyMs: 5.8 };
+    }
+  },
+
+  async getCatalogos(): Promise<CatalogosBundleDto> {
+    try {
+      const res = await fetch(`${API_BASE}/Database/catalogos`, { signal: AbortSignal.timeout(3000) });
+      if (!res.ok) throw new Error('offline');
+      return await res.json();
+    } catch {
+      return SNAPSHOT_CATALOGOS;
     }
   },
 
   async getProductos(): Promise<Producto[]> {
     try {
-      const res = await fetch(`${API_BASE}/Producto`, { signal: AbortSignal.timeout(2000) })
-      if (!res.ok) throw new Error('API offline')
-      return await res.json()
+      const res = await fetch(`${API_BASE}/Producto`, { signal: AbortSignal.timeout(3000) });
+      if (!res.ok) throw new Error('offline');
+      return await res.json();
     } catch {
-      return MOCK_PRODUCTOS
+      return SNAPSHOT_PRODUCTOS;
     }
   },
 
   async getInventario(sucursalId?: number): Promise<InventarioItem[]> {
     try {
-      const url = sucursalId
-        ? `${API_BASE}/Inventario/sucursal/${sucursalId}`
-        : `${API_BASE}/Inventario`
-      const res = await fetch(url, { signal: AbortSignal.timeout(2000) })
-      if (!res.ok) throw new Error('API offline')
-      return await res.json()
+      const url = sucursalId ? `${API_BASE}/Inventario/sucursal/${sucursalId}` : `${API_BASE}/Inventario`;
+      const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
+      if (!res.ok) throw new Error('offline');
+      return await res.json();
     } catch {
-      if (sucursalId) {
-        return mockInventario.filter(i => i.sucursalId === sucursalId)
-      }
-      return mockInventario
+      return sucursalId
+        ? fallbackInventario.filter((i) => i.sucursalId === sucursalId)
+        : fallbackInventario;
     }
   },
 
   async getClientes(): Promise<Cliente[]> {
     try {
-      const res = await fetch(`${API_BASE}/Cliente`, { signal: AbortSignal.timeout(2000) })
-      if (!res.ok) throw new Error('API offline')
-      return await res.json()
+      const res = await fetch(`${API_BASE}/Cliente`, { signal: AbortSignal.timeout(3000) });
+      if (!res.ok) throw new Error('offline');
+      return await res.json();
     } catch {
-      return CLIENTES_DEMO
+      return SNAPSHOT_CLIENTES;
     }
   },
 
-  async getVentas(): Promise<VentaResponseDto[]> {
+  async getCompras(sucursalId?: number): Promise<CompraResponseDto[]> {
     try {
-      const res = await fetch(`${API_BASE}/Venta`, { signal: AbortSignal.timeout(2000) })
-      if (!res.ok) throw new Error('API offline')
-      return await res.json()
+      const qs = sucursalId ? `?limit=40&sucursalId=${sucursalId}` : '?limit=40';
+      const res = await fetch(`${API_BASE}/Compra${qs}`, { signal: AbortSignal.timeout(3000) });
+      if (!res.ok) throw new Error('offline');
+      return await res.json();
     } catch {
-      return []
+      return sucursalId ? fallbackCompras.filter((c) => c.sucursalId === sucursalId) : fallbackCompras;
     }
   },
 
-  async procesarVenta(dto: CreateVentaDto): Promise<{ success: boolean; data?: VentaResponseDto; error?: string }> {
+  async procesarVenta(dto: CreateVentaDto): Promise<{ success: boolean; data?: VentaResponseDto; error?: string; latencyMs: number; status: number }> {
+    const t0 = performance.now();
     try {
       const res = await fetch(`${API_BASE}/Venta`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(dto),
-        signal: AbortSignal.timeout(5000),
-      })
-
-      const responseBody = await res.json()
-
+        signal: AbortSignal.timeout(15000),
+      });
+      const latencyMs = Math.round((performance.now() - t0) * 10) / 10;
+      const body = await res.json();
       if (!res.ok) {
         return {
           success: false,
-          error: responseBody.mensaje || responseBody.Mensaje || 'Error al procesar la venta en el servidor.'
-        }
+          error: body.mensaje || body.Mensaje || 'Rollback ejecutado por violación de invariante de dominio.',
+          latencyMs,
+          status: res.status,
+        };
       }
-
-      return {
-        success: true,
-        data: responseBody
-      }
+      return { success: true, data: body, latencyMs, status: res.status };
     } catch {
-      // MOCK FALLBACK SI EL BACKEND NO ESTÁ ESCUCHANDO:
-      // Validar stock localmente en mockInventario
+      const latencyMs = Math.round((performance.now() - t0) * 10) / 10;
       for (const item of dto.detalles) {
-        const inv = mockInventario.find(i => i.sucursalId === dto.sucursalId && i.productoId === item.productoId)
-        const prod = MOCK_PRODUCTOS.find(p => p.productoId === item.productoId)
-        const nombre = prod?.nombre || `Producto #${item.productoId}`
-
+        const inv = fallbackInventario.find((i) => i.sucursalId === dto.sucursalId && i.productoId === item.productoId);
+        const prod = SNAPSHOT_PRODUCTOS.find((p) => p.productoId === item.productoId);
+        const nombre = prod?.nombre ?? `Producto #${item.productoId}`;
         if (!inv || inv.cantidadStock < item.cantidad) {
           return {
             success: false,
-            error: `Stock insuficiente para '${nombre}'. Disponible en sucursal: ${inv?.cantidadStock ?? 0}, Solicitado: ${item.cantidad}.`
-          }
+            error: `Stock insuficiente para el producto '${nombre}' (ID: ${item.productoId}). Stock disponible en sucursal: ${(inv?.cantidadStock ?? 0).toFixed(2)}, Cantidad solicitada: ${item.cantidad.toFixed(2)}.`,
+            latencyMs,
+            status: 400,
+          };
         }
       }
-
-      // Descontar del mock
       for (const item of dto.detalles) {
-        const inv = mockInventario.find(i => i.sucursalId === dto.sucursalId && i.productoId === item.productoId)
-        if (inv) inv.cantidadStock -= item.cantidad
+        const inv = fallbackInventario.find((i) => i.sucursalId === dto.sucursalId && i.productoId === item.productoId);
+        if (inv) inv.cantidadStock -= item.cantidad;
       }
-
-      const subtotal = dto.detalles.reduce((acc, d) => acc + (d.cantidad * d.precioUnitario), 0)
-      const impuestos = Math.round(subtotal * 0.16 * 100) / 100
-      const total = subtotal + impuestos
-
-      const mockVenta: VentaResponseDto = {
-        ventaId: Math.floor(1000 + Math.random() * 9000),
+      const subtotal = dto.detalles.reduce((s, d) => s + d.cantidad * d.precioUnitario, 0);
+      const totalImpuestos = Math.round(subtotal * 0.16 * 100) / 100;
+      const venta: VentaResponseDto = {
+        ventaId: 15613 + Math.floor(Math.random() * 90),
         sucursalId: dto.sucursalId,
-        sucursalNombre: SUCURSALES_DEMO.find(s => s.id === dto.sucursalId)?.nombre || 'Matriz',
+        sucursalNombre: SNAPSHOT_CATALOGOS.sucursales.find((s) => s.sucursalId === dto.sucursalId)?.nombre ?? 'Matriz',
         empleadoId: dto.empleadoId,
-        empleadoNombre: 'Carlos Hernández (Cajero)',
+        empleadoNombre: 'Axel Linares',
         clienteId: dto.clienteId,
-        clienteNombre: CLIENTES_DEMO.find(c => c.clienteId === dto.clienteId)?.nombre || 'Público General',
+        clienteNombre: SNAPSHOT_CLIENTES.find((c) => c.clienteId === dto.clienteId)?.nombre ?? 'Mostrador General',
         tipoImpuestoId: 1,
-        tipoImpuestoDescripcion: 'IVA 16%',
+        tipoImpuestoDescripcion: 'IVA General 16%',
         tipoImpuestoPorcentaje: 0.16,
         fechaHora: new Date().toISOString(),
         subtotal,
-        totalImpuestos: impuestos,
-        total,
+        totalImpuestos,
+        total: subtotal + totalImpuestos,
         estatus: 'Completada',
         detalles: dto.detalles.map((d, idx) => ({
           ventaDetalleId: idx + 1,
           productoId: d.productoId,
-          productoNombre: MOCK_PRODUCTOS.find(p => p.productoId === d.productoId)?.nombre || 'Producto',
+          productoNombre: SNAPSHOT_PRODUCTOS.find((p) => p.productoId === d.productoId)?.nombre ?? `Producto #${d.productoId}`,
           cantidad: d.cantidad,
           precioUnitario: d.precioUnitario,
-          importe: d.cantidad * d.precioUnitario
-        }))
-      }
+          importe: d.cantidad * d.precioUnitario,
+        })),
+      };
+      return { success: true, data: venta, latencyMs, status: 201 };
+    }
+  },
 
-      return { success: true, data: mockVenta }
+  async registrarCompra(dto: CreateCompraDto): Promise<{ success: boolean; data?: CompraResponseDto; error?: string; latencyMs: number }> {
+    const t0 = performance.now();
+    try {
+      const res = await fetch(`${API_BASE}/Compra`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(dto),
+        signal: AbortSignal.timeout(15000),
+      });
+      const latencyMs = Math.round((performance.now() - t0) * 10) / 10;
+      const body = await res.json();
+      if (!res.ok) {
+        return { success: false, error: body.mensaje || body.Mensaje || 'Error en recepción de compra.', latencyMs };
+      }
+      return { success: true, data: body, latencyMs };
+    } catch {
+      const latencyMs = Math.round((performance.now() - t0) * 10) / 10;
+      for (const det of dto.detalles) {
+        const inv = fallbackInventario.find((i) => i.sucursalId === dto.sucursalId && i.productoId === det.productoId);
+        if (inv) inv.cantidadStock += det.cantidad;
+      }
+      const total = dto.detalles.reduce((s, d) => s + d.cantidad * d.costoUnitario, 0);
+      const nueva: CompraResponseDto = {
+        compraId: 1324 + fallbackCompras.length,
+        proveedorId: dto.proveedorId,
+        proveedorNombre: SNAPSHOT_CATALOGOS.proveedores.find((p) => p.proveedorId === dto.proveedorId)?.nombreFiscal ?? 'Molino Proveedor',
+        proveedorRfc: 'MHE900115AA1',
+        sucursalId: dto.sucursalId,
+        sucursalNombre: SNAPSHOT_CATALOGOS.sucursales.find((s) => s.sucursalId === dto.sucursalId)?.nombre ?? 'Sucursal',
+        empleadoId: dto.empleadoId,
+        empleadoNombre: 'Axel Linares',
+        fechaRecepcion: new Date().toISOString().slice(0, 10),
+        total,
+        detalles: dto.detalles.map((d, idx) => ({
+          compraDetalleId: 4000 + idx,
+          productoId: d.productoId,
+          productoNombre: SNAPSHOT_PRODUCTOS.find((p) => p.productoId === d.productoId)?.nombre ?? `Insumo #${d.productoId}`,
+          unidadMedida: 'bto',
+          cantidad: d.cantidad,
+          costoUnitario: d.costoUnitario,
+          subtotal: d.cantidad * d.costoUnitario,
+        })),
+      };
+      fallbackCompras = [nueva, ...fallbackCompras];
+      return { success: true, data: nueva, latencyMs };
     }
   },
 
@@ -285,18 +249,88 @@ export const api = {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(dto),
-      })
-      return res.ok
+      });
+      if (!res.ok) throw new Error('offline');
+      return true;
     } catch {
-      const inv = mockInventario.find(i => i.sucursalId === dto.sucursalId && i.productoId === dto.productoId)
+      const inv = fallbackInventario.find((i) => i.sucursalId === dto.sucursalId && i.productoId === dto.productoId);
       if (inv) {
-        if (dto.operacion === 'fijar') {
-          inv.cantidadStock = dto.cantidad
-        } else {
-          inv.cantidadStock += dto.cantidad
-        }
+        inv.cantidadStock = dto.operacion === 'fijar' ? dto.cantidad : inv.cantidadStock + dto.cantidad;
       }
-      return true
+      return true;
     }
-  }
-}
+  },
+
+  async executeLabEndpoint(
+    method: 'GET' | 'POST',
+    path: string,
+    requestBody?: unknown,
+    sqlExplain?: string[]
+  ): Promise<EndpointExecutionResult> {
+    const t0 = performance.now();
+    try {
+      const res = await fetch(path, {
+        method,
+        headers: requestBody ? { 'Content-Type': 'application/json' } : undefined,
+        body: requestBody ? JSON.stringify(requestBody) : undefined,
+        signal: AbortSignal.timeout(5000),
+      });
+      const latencyMs = Math.round((performance.now() - t0) * 10) / 10;
+      const responseBody = await res.json();
+      return {
+        method,
+        path,
+        status: res.status,
+        latencyMs,
+        source: 'live-sql',
+        requestBody,
+        responseBody,
+        timestamp: nowClock(),
+        sqlTrace: [
+          `[${nowClock()}] ${method} ${path} -> HTTP ${res.status} (${latencyMs}ms · SQL Server Live)`,
+          ...(sqlExplain ?? []),
+          res.ok
+            ? `[commit] Operación completada con éxito en PanaderiaDB`
+            : `[rollback] Transacción revertida limpiamente: ${(responseBody as { mensaje?: string })?.mensaje ?? 'Regla de dominio activada'}`,
+        ],
+      };
+    } catch {
+      // Fallback determinista cuando se explora en portafolio estático sin backend local activo
+      let status = 200;
+      let responseBody: unknown = { info: 'Snapshot response' };
+      if (path.includes('/telemetry')) responseBody = SNAPSHOT_TELEMETRY;
+      else if (path.includes('/analytics')) responseBody = getSnapshotAnalytics(2026, null);
+      else if (path.includes('/Producto')) responseBody = SNAPSHOT_PRODUCTOS.slice(0, 8);
+      else if (path.includes('/Inventario')) responseBody = fallbackInventario.slice(0, 10);
+      else if (path.includes('/health')) responseBody = { status: 'SnapshotMode', engine: 'Embedded 3-Year Dataset', tables: 15, rows: 63503 };
+      else if (method === 'POST' && path.includes('/Venta') && requestBody) {
+        const sim = await this.procesarVenta(requestBody as CreateVentaDto);
+        status = sim.status;
+        responseBody = sim.success ? sim.data : { codigo: 'STOCK_INSUFICIENTE', mensaje: sim.error };
+      } else if (method === 'POST' && path.includes('/Compra') && requestBody) {
+        const sim = await this.registrarCompra(requestBody as CreateCompraDto);
+        status = sim.success ? 201 : 400;
+        responseBody = sim.success ? sim.data : { codigo: 'ERROR', mensaje: sim.error };
+      }
+
+      const latencyMs = Math.round((performance.now() - t0 + 3.4) * 10) / 10;
+      return {
+        method,
+        path,
+        status,
+        latencyMs,
+        source: 'portfolio-snapshot',
+        requestBody,
+        responseBody,
+        timestamp: nowClock(),
+        sqlTrace: [
+          `[${nowClock()}] ${method} ${path} -> HTTP ${status} (${latencyMs}ms · Snapshot 3 Años)`,
+          ...(sqlExplain ?? []),
+          status < 400
+            ? `[commit] Transacción simulada confirmada sobre dataset de 36 meses`
+            : `[rollback] StockInsuficienteException capturada -> ROLLBACK TRANSACTION`,
+        ],
+      };
+    }
+  },
+};

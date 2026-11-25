@@ -1,3 +1,4 @@
+using System;
 using Microsoft.EntityFrameworkCore;
 using Panaderia.Application.Interfaces;
 using Panaderia.Application.Services;
@@ -6,12 +7,8 @@ using Panaderia.Infrastructure.Persistence.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
 builder.Services.AddControllers();
 
-// ---------------------------------------------------------
-// 1. CONFIGURACIÓN DE CORS (Habilitación para cliente web React)
-// ---------------------------------------------------------
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
@@ -22,39 +19,34 @@ builder.Services.AddCors(options =>
     });
 });
 
-// ---------------------------------------------------------
-// 2. CONFIGURACIÓN DE BASE DE DATOS
-// ---------------------------------------------------------
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
 builder.Services.AddDbContext<PanaderiaDbContext>(options =>
-    options.UseSqlServer(connectionString));
+    options.UseSqlServer(connectionString, sqlOptions =>
+    {
+        sqlOptions.CommandTimeout(60);
+    }));
 
-// ---------------------------------------------------------
-// 3. INYECCIÓN DE DEPENDENCIAS (Clean Architecture)
-// ---------------------------------------------------------
-
-// A. Repositorios (Capa Infraestructura)
+// Capa Infraestructura (Repositorios y Telemetría Relacional)
 builder.Services.AddScoped<IProductoRepository, ProductoRepository>();
 builder.Services.AddScoped<IClienteRepository, ClienteRepository>();
 builder.Services.AddScoped<IVentaRepository, VentaRepository>();
 builder.Services.AddScoped<IInventarioRepository, InventarioRepository>();
+builder.Services.AddScoped<ICompraRepository, CompraRepository>();
+builder.Services.AddScoped<IDatabaseInsightService, DatabaseInsightService>();
 
-// B. Servicios de Aplicación (Capa Aplicación)
+// Capa Aplicación (Casos de Uso)
 builder.Services.AddScoped<IProductoService, ProductoService>();
 builder.Services.AddScoped<IClienteService, ClienteService>();
 builder.Services.AddScoped<IVentaService, VentaService>();
 builder.Services.AddScoped<IInventarioService, InventarioService>();
+builder.Services.AddScoped<ICompraService, CompraService>();
 
-// ---------------------------------------------------------
-// 4. DOCUMENTACIÓN SWAGGER / OPENAPI
-// ---------------------------------------------------------
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -63,9 +55,20 @@ if (app.Environment.IsDevelopment())
 
 app.UseCors("AllowFrontend");
 
-app.UseHttpsRedirection();
-
 app.UseAuthorization();
+
+app.MapGet("/api/health", async (PanaderiaDbContext db) =>
+{
+    var canConnect = await db.Database.CanConnectAsync();
+    return Results.Ok(new
+    {
+        status = canConnect ? "Healthy" : "Degraded",
+        engine = "ASP.NET Core 8.0 + EF Core 8",
+        database = db.Database.GetDbConnection().Database,
+        canConnect,
+        timestamp = DateTime.UtcNow
+    });
+});
 
 app.MapControllers();
 

@@ -6,7 +6,7 @@ namespace Panaderia.Application.Interfaces
 {
     public interface IVentaRepository
     {
-        Task<List<Venta>> ObtenerTodosAsync();
+        Task<List<Venta>> ObtenerTodosAsync(int limit = 100, int? sucursalId = null);
         Task<Venta?> ObtenerPorIdAsync(int id);
         Task<Venta> RegistrarVentaTransaccionalAsync(Venta venta, List<(int ProductoId, decimal Cantidad)> itemsADescontar);
         Task<bool> CrearAsync(Venta venta);

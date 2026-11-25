@@ -23,9 +23,9 @@ namespace Panaderia.Controllers
         /// Obtiene el historial completo de ventas con detalles calculados y catálogos.
         /// </summary>
         [HttpGet]
-        public async Task<ActionResult<List<VentaResponseDto>>> ObtenerTodos()
+        public async Task<ActionResult<List<VentaResponseDto>>> ObtenerTodos([FromQuery] int limit = 100, [FromQuery] int? sucursalId = null)
         {
-            var ventas = await _ventaService.ObtenerTodosAsync();
+            var ventas = await _ventaService.ObtenerTodosAsync(limit, sucursalId);
             return Ok(ventas);
         }
 

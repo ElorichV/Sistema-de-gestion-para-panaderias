@@ -19,17 +19,26 @@ namespace Panaderia.Infrastructure.Persistence.Repositories
             _context = context;
         }
 
-        public async Task<List<Venta>> ObtenerTodosAsync()
+        public async Task<List<Venta>> ObtenerTodosAsync(int limit = 100, int? sucursalId = null)
         {
-            return await _context.Ventas
-                .AsNoTracking()
+            var safeLimit = Math.Clamp(limit, 1, 500);
+            var query = _context.Ventas.AsNoTracking().AsQueryable();
+
+            if (sucursalId.HasValue && sucursalId.Value > 0)
+            {
+                query = query.Where(v => v.SucursalId == sucursalId.Value);
+            }
+
+            return await query
+                .OrderByDescending(v => v.FechaHora)
+                .ThenByDescending(v => v.VentaId)
+                .Take(safeLimit)
                 .Include(v => v.VentaDetalles)
                     .ThenInclude(vd => vd.Producto)
                 .Include(v => v.Cliente)
                 .Include(v => v.Empleado)
                 .Include(v => v.Sucursal)
                 .Include(v => v.TipoImpuesto)
-                .OrderByDescending(v => v.FechaHora)
                 .ToListAsync();
         }
 
